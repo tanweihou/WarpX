@@ -218,7 +218,7 @@ struct LaxWendroffAlgoBoostConductor {
          return alpha2z;
      }
 
-}
+};
 
 /**
  * \brief
