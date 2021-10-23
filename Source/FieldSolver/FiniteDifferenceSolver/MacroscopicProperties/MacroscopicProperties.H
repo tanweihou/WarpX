@@ -168,8 +168,8 @@ struct LaxWendroffAlgoBoostConductor {
                                   amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = 0.5_rt * sigma * dt * gamma_boost / epsilon;
-         amrex::Real alpha = (1._rt - fac1) / (1._rt + fac1);
-         return alpha;
+         amrex::Real alpha1xy = (1._rt - fac1) / (1._rt + fac1);
+         return alpha1xy;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -179,8 +179,8 @@ struct LaxWendroffAlgoBoostConductor {
                                   amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = 0.5_rt * sigma * dt * gamma_boost / epsilon;
-         amrex::Real alpha = dt / (epsilon * (1._rt + fac1));
-         return alpha
+         amrex::Real alpha2xy = dt / (epsilon * (1._rt + fac1));
+         return alpha2xy;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -192,8 +192,8 @@ struct LaxWendroffAlgoBoostConductor {
          amrex::Real clight = PhysConst::c;
          amrex::Real fac1 = 0.5_rt * sigma * dt * gamma_boost / epsilon;
          amrex::Real beta_boost = std::sqrt( 1._rt - 1._rt/( gamma_boost * gamma_boost) );
-         amrex::Real alpha = beta_boost * clight * fac1 / (1._rt + fac1);
-         return alpha;
+         amrex::Real alpha3xy = beta_boost * clight * fac1 / (1._rt + fac1);
+         return alpha3xy;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -203,8 +203,8 @@ struct LaxWendroffAlgoBoostConductor {
                                  amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = 0.5_rt * sigma * dt / (epsilon * gamma_boost);
-         amrex::Real alpha1 = (1._rt - fac1) / (1._rt + fac1);
-         return alpha1;
+         amrex::Real alpha1z = (1._rt - fac1) / (1._rt + fac1);
+         return alpha1z;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -214,8 +214,8 @@ struct LaxWendroffAlgoBoostConductor {
                                  amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = 0.5_rt * sigma * dt / (epsilon * gamma_boost);
-         amrex::Real alpha = dt / (epsilon * (1._rt + fac1));
-         return alpha
+         amrex::Real alpha2z = dt / (epsilon * (1._rt + fac1));
+         return alpha2z;
      }
 
 }
@@ -237,8 +237,8 @@ struct BackwardEulerAlgoBoostConductor {
                                   amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = sigma * dt * gamma_boost / epsilon;
-         amrex::Real alpha = (1._rt) / (1._rt + fac1);
-         return alpha;
+         amrex::Real alpha1xy = (1._rt) / (1._rt + fac1);
+         return alpha1xy;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -248,8 +248,8 @@ struct BackwardEulerAlgoBoostConductor {
                                   amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = sigma * dt * gamma_boost / epsilon;
-         amrex::Real alpha = dt / (epsilon * (1._rt + fac1));
-         return alpha
+         amrex::Real alpha2xy = dt / (epsilon * (1._rt + fac1));
+         return alpha2xy;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -261,8 +261,8 @@ struct BackwardEulerAlgoBoostConductor {
          amrex::Real clight = PhysConst::c;
          amrex::Real fac1 = sigma * dt * gamma_boost / epsilon;
          amrex::Real beta_boost = std::sqrt( 1._rt - 1._rt/( gamma_boost * gamma_boost) );
-         amrex::Real alpha = 0.5_rt * beta_boost * clight * fac1 / (1._rt + fac1);
-         return alpha;
+         amrex::Real alpha3xy = 0.5_rt * beta_boost * clight * fac1 / (1._rt + fac1);
+         return alpha3xy;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -272,8 +272,8 @@ struct BackwardEulerAlgoBoostConductor {
                                  amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = sigma * dt / (epsilon * gamma_boost);
-         amrex::Real alpha1 = (1._rt) / (1._rt + fac1);
-         return alpha1;
+         amrex::Real alpha1z = (1._rt) / (1._rt + fac1);
+         return alpha1z;
      }
 
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -283,8 +283,8 @@ struct BackwardEulerAlgoBoostConductor {
                                  amrex::Real gamma_boost) {
          using namespace amrex;
          amrex::Real fac1 = sigma * dt / (epsilon * gamma_boost);
-         amrex::Real alpha = dt / (epsilon * (1._rt + fac1));
-         return alpha
+         amrex::Real alpha2z = dt / (epsilon * (1._rt + fac1));
+         return alpha2z;
      }
 
 };
