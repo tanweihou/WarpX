@@ -238,6 +238,14 @@ class FiniteDifferenceSolver
             amrex::Real const dt,
             std::unique_ptr<MacroscopicProperties> const& macroscopic_properties);
 
+        template< typename T_Algo, typename T_MacroAlgo >
+        void MacroscopicEvolveECartesianBoostConductor (
+            std::array< std::unique_ptr< amrex::MultiFab>, 3>& Efield,
+            std::array< std::unique_ptr< amrex::MultiFab>, 3> const &Bfield,
+            std::array< std::unique_ptr< amrex::MultiFab>, 3> const& Jfield,
+            amrex::Real const dt,
+            std::unique_ptr<MacroscopicProperties> const& macroscopic_properties);
+
         template< typename T_Algo >
         void EvolveBPMLCartesian (
             std::array< amrex::MultiFab*, 3 > Bfield,

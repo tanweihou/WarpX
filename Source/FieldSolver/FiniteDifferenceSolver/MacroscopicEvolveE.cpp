@@ -264,7 +264,8 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         // starting component to interpolate macro properties to Ex, Ey, Ez locations
         const int scomp = 0;
         // Get the Lorentz factor 
-        gamma_boost = WarpX::gamma_boost;
+        auto& warpx = WarpX::GetInstance();
+        amrex::Real gamma_boost = warpx.gamma_boost;
         // Loop over the cells and update the fields
         amrex::ParallelFor(tex, tey, tez,
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
