@@ -280,7 +280,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
                 amrex::Real alpha1xy = T_MacroAlgo::alpha1xy( sigma_interp, epsilon_interp, dt, gamma_boost);
                 amrex::Real alpha2xy = T_MacroAlgo::alpha2xy( sigma_interp, epsilon_interp, dt, gamma_boost);
                 amrex::Real alpha3xy = T_MacroAlgo::alpha3xy( sigma_interp, epsilon_interp, dt, gamma_boost);
-                
+
                 Ex(i, j, k) = alpha1xy * Ex(i, j, k)
                             + alpha2xy * ( - T_Algo::DownwardDz(Hy, coefs_z, n_coefs_z, i, j, k,0)
                                            + T_Algo::DownwardDy(Hz, coefs_y, n_coefs_y, i, j, k,0)

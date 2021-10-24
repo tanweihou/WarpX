@@ -160,7 +160,6 @@ struct BackwardEulerAlgo {
  * the covariant generalization of Ohm's law.
  */
 struct LaxWendroffAlgoBoostConductor {
-     
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
      static amrex::Real alpha1xy (amrex::Real const sigma,
                                   amrex::Real const epsilon,
@@ -171,7 +170,6 @@ struct LaxWendroffAlgoBoostConductor {
          amrex::Real alpha1xy = (1._rt - fac1) / (1._rt + fac1);
          return alpha1xy;
      }
-
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
      static amrex::Real alpha2xy (amrex::Real const sigma,
                                   amrex::Real const epsilon,
@@ -182,7 +180,6 @@ struct LaxWendroffAlgoBoostConductor {
          amrex::Real alpha2xy = dt / (epsilon * (1._rt + fac1));
          return alpha2xy;
      }
-
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
      static amrex::Real alpha3xy (amrex::Real const sigma,
                                   amrex::Real const epsilon,
@@ -195,7 +192,6 @@ struct LaxWendroffAlgoBoostConductor {
          amrex::Real alpha3xy = beta_boost * clight * fac1 / (1._rt + fac1);
          return alpha3xy;
      }
-
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
      static amrex::Real alpha1z (amrex::Real const sigma,
                                  amrex::Real const epsilon,
@@ -206,7 +202,6 @@ struct LaxWendroffAlgoBoostConductor {
          amrex::Real alpha1z = (1._rt - fac1) / (1._rt + fac1);
          return alpha1z;
      }
-
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
      static amrex::Real alpha2z (amrex::Real const sigma,
                                  amrex::Real const epsilon,
