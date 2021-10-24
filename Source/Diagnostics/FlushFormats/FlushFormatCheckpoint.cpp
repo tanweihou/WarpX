@@ -31,7 +31,6 @@ FlushFormatCheckpoint::WriteToFile (
         const std::string prefix, int file_min_digits,
         bool /*plot_raw_fields*/,
         bool /*plot_raw_fields_guards*/,
-        bool /*plot_raw_rho*/, bool /*plot_raw_F*/,
         bool /*isBTD*/, int /*snapshotID*/,
         const amrex::Geometry& /*full_BTD_snapshot*/,
         bool /*isLastBTDFlush*/) const
@@ -159,8 +158,35 @@ FlushFormatCheckpoint::CheckpointParticles (
     const amrex::Vector<ParticleDiag>& particle_diags) const
 {
     for (unsigned i = 0, n = particle_diags.size(); i < n; ++i) {
-        particle_diags[i].getParticleContainer()->Checkpoint(
-            dir, particle_diags[i].getSpeciesName());
+        WarpXParticleContainer* pc = particle_diags[i].getParticleContainer();
+
+        Vector<std::string> real_names;
+        Vector<std::string> int_names;
+        Vector<int> int_flags;
+        Vector<int> real_flags;
+
+        real_names.push_back("weight");
+
+        real_names.push_back("momentum_x");
+        real_names.push_back("momentum_y");
+        real_names.push_back("momentum_z");
+
+#ifdef WARPX_DIM_RZ
+        real_names.push_back("theta");
+#endif
+
+        // get the names of the real comps
+        real_names.resize(pc->NumRealComps());
+        auto runtime_rnames = pc->getParticleRuntimeComps();
+        for (auto const& x : runtime_rnames) { real_names[x.second+PIdx::nattribs] = x.first; }
+
+        // and the int comps
+        int_names.resize(pc->NumIntComps());
+        auto runtime_inames = pc->getParticleRuntimeiComps();
+        for (auto const& x : runtime_inames) { int_names[x.second+0] = x.first; }
+
+        pc->Checkpoint(dir, particle_diags[i].getSpeciesName(), true,
+                       real_names, int_names);
     }
 }
 
