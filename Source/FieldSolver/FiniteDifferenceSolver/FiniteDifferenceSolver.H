@@ -121,6 +121,13 @@ class FiniteDifferenceSolver
        void EvolveFPML ( amrex::MultiFab* Ffield,
                      std::array< amrex::MultiFab*, 3 > const Efield,
                      amrex::Real const dt );
+                     
+        void MacroscopicEvolveEBoostConductor ( std::array< std::unique_ptr<amrex::MultiFab>, 3>& Efield,
+                      std::array< std::unique_ptr<amrex::MultiFab>, 3> const& Bfield,
+                      std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Jfield,
+                      amrex::Real const dt,
+                      std::unique_ptr<MacroscopicProperties> const& macroscopic_properties,
+                      int const lev);
 
     private:
 

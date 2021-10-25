@@ -118,6 +118,7 @@ int WarpX::maxwell_solver_id;
 long WarpX::load_balance_costs_update_algo;
 bool WarpX::do_dive_cleaning = 0;
 bool WarpX::do_divb_cleaning = 0;
+bool WarpX::boost_conductor = 0;
 int WarpX::em_solver_medium;
 int WarpX::macroscopic_solver_algo;
 int WarpX::do_single_precision_comms=0;
@@ -708,6 +709,17 @@ WarpX::ReadParameters ()
         pp_warpx.query("do_divb_cleaning", do_divb_cleaning);
         queryWithParser(pp_warpx, "n_field_gather_buffer", n_field_gather_buffer);
         queryWithParser(pp_warpx, "n_current_deposition_buffer", n_current_deposition_buffer);
+        
+        // If true, check if gamma_boost > 1 and boost_direction is z
+        pp_warpx.query("boost_conductor", boost_conductor);
+        if (boost_conductor) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(gamma_boost > 1.0,
+                 "gamma_boost must be > 1 to use the boosted frame solver for finite conductivity");
+            std::string s;
+            pp_warpx.get("boost_direction", s);
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE( (s == "z" || s == "Z"),
+                 "The boosted frame solver for finite conductivity currently only works if the boost is in the z direction.");
+        }
 
         amrex::Real quantum_xi_tmp;
         int quantum_xi_is_specified = queryWithParser(pp_warpx, "quantum_xi", quantum_xi_tmp);
@@ -1647,7 +1659,7 @@ WarpX::AllocLevelMFs (int lev, const BoxArray& ba, const DistributionMapping& dm
     }
 #endif
 
-    bool deposit_charge = do_dive_cleaning || (do_electrostatic == ElectrostaticSolverAlgo::LabFrame);
+    bool deposit_charge = do_dive_cleaning || boost_conductor || (do_electrostatic == ElectrostaticSolverAlgo::LabFrame);
     if (WarpX::maxwell_solver_id == MaxwellSolverAlgo::PSATD) {
         deposit_charge = do_dive_cleaning || update_with_rho || current_correction;
     }

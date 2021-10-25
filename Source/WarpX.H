@@ -223,6 +223,9 @@ public:
     static bool do_dive_cleaning;
     static bool do_divb_cleaning;
 
+    // If true, use macroscopic solver in boosted frame for conductor with finite conductivity
+    static bool boost_conductor;
+
     // Interpolation order
     static int nox;
     static int noy;

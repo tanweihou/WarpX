@@ -11,6 +11,7 @@ target_sources(WarpX
     FiniteDifferenceSolver.cpp
     MacroscopicEvolveE.cpp
     ApplySilverMuellerBoundary.cpp
+    MacroscopicEvolveEBoostConductor.cpp
 )
 
 add_subdirectory(MacroscopicProperties)
