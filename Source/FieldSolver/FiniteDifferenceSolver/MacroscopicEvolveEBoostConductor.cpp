@@ -203,7 +203,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
                 // rho is needed to be taken account of
                 Ez(i, j, k) = alpha1z * Ez(i, j, k)
                             + alpha2z * ( - T_Algo::DownwardDy(Hx, coefs_y, n_coefs_y, i, j, k, 0)
-                                          + T_Algo::DownwardDx(Hy, coefs_x, n_coefs_x, i, j, k, 0) ) 
+                                          + T_Algo::DownwardDx(Hy, coefs_x, n_coefs_x, i, j, k, 0) )
                             - alpha2z * jz(i, j, k);
             }
         );

@@ -31,7 +31,7 @@
  * the covariant generalization of Ohm's law.
  */
 struct LaxWendroffAlgoBoostConductor {
-     
+
      AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
      static amrex::Real alpha1xy (amrex::Real const sigma,
                                   amrex::Real const epsilon,

@@ -709,7 +709,7 @@ WarpX::ReadParameters ()
         pp_warpx.query("do_divb_cleaning", do_divb_cleaning);
         queryWithParser(pp_warpx, "n_field_gather_buffer", n_field_gather_buffer);
         queryWithParser(pp_warpx, "n_current_deposition_buffer", n_current_deposition_buffer);
-        
+
         // If true, check if gamma_boost > 1 and boost_direction is z
         pp_warpx.query("boost_conductor", boost_conductor);
         if (boost_conductor) {
