@@ -156,6 +156,18 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         // Get the Lorentz factor
         amrex::Real gamma_boost = warpx.gamma_boost;
 
+        // Compute divE for calculating charge density responsible for
+        // the conductor
+        constexpr int ng = 1;
+        // ignore RZ symmetry since this algorithm works only with Cartesian
+        amrex::IntVect cell_type = amrex::IntVect::TheNodeVector();
+
+        // For now, set m_lev to 0, suggested by Lehe et al
+        const amrex::BoxArray& ba = amrex::convert(warpx.boxArray(0), cell_type);
+        // need to figure out what is warpx.n_rz_azimuthal_modes
+        amrex::MultiFab divE(ba, warpx.DistributionMap(0), 2*warpx.n_rz_azimuthal_modes-1, ng );
+        warpx.ComputeDivE(divE, m_lev);
+
         // Loop over the cells and update the fields
         amrex::ParallelFor(tex, tey, tez,
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
