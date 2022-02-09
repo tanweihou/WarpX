@@ -166,7 +166,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         const amrex::BoxArray& ba = amrex::convert(warpx.boxArray(0), cell_type);
         // need to figure out what is warpx.n_rz_azimuthal_modes
         amrex::MultiFab divE(ba, warpx.DistributionMap(0), 2*warpx.n_rz_azimuthal_modes-1, ng );
-        warpx.ComputeDivE(divE, m_lev);
+        warpx.ComputeDivE(divE, 0);
 
         // Loop over the cells and update the fields
         amrex::ParallelFor(tex, tey, tez,
