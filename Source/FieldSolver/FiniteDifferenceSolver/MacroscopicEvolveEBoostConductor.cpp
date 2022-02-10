@@ -37,6 +37,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
     std::array< std::unique_ptr<amrex::MultiFab>, 3 >& Efield,
     std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Bfield,
     std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Jfield,
+    std::unique_ptr<amrex::MultiFab> const& rhofield,
     amrex::Real const dt,
     std::unique_ptr<MacroscopicProperties> const& macroscopic_properties, int const lev)
 {
@@ -44,7 +45,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
    // Select algorithm (The choice of algorithm is a runtime option,
    // but we compile code for each algorithm, using templates)
 #ifdef WARPX_DIM_RZ
-    amrex::ignore_unused(Efield, Bfield, Jfield, dt, macroscopic_properties, lev);
+    amrex::ignore_unused(Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev);
     amrex::Abort("currently macro E-push does not work for RZ");
 #else
     if (m_do_nodal) {
@@ -55,13 +56,13 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
         if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::LaxWendroff) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianYeeAlgorithm, LaxWendroffAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
 
         }
         if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::BackwardEuler) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianYeeAlgorithm, BackwardEulerAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
 
         }
 
@@ -72,12 +73,12 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
         if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::LaxWendroff) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianCKCAlgorithm, LaxWendroffAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
 
         } else if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::BackwardEuler) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianCKCAlgorithm, BackwardEulerAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
 
         }
 
@@ -101,6 +102,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
     std::array< std::unique_ptr<amrex::MultiFab>, 3 >& Efield,
     std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Bfield,
     std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Jfield,
+    std::unique_ptr<amrex::MultiFab> const& rhofield,
     amrex::Real const dt,
     std::unique_ptr<MacroscopicProperties> const& macroscopic_properties, int const lev)
 {
@@ -135,6 +137,8 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         Array4<Real> const& jx = Jfield[0]->array(mfi);
         Array4<Real> const& jy = Jfield[1]->array(mfi);
         Array4<Real> const& jz = Jfield[2]->array(mfi);
+        // Get rho from this rho grid/tile
+        Array4<Real> const& rho = rhofield->array(mfi);
 
         // Extract stencil coefficients
         Real const * const AMREX_RESTRICT coefs_x = m_stencil_coefs_x.dataPtr();
