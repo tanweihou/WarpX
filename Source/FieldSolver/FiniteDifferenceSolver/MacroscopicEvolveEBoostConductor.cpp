@@ -121,6 +121,18 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
     const auto problo = warpx.Geom(lev).ProbLoArray();
     const auto dx = warpx.Geom(lev).CellSizeArray();
 
+    // Compute divE for calculating charge density responsible for
+    // the conductor
+    constexpr int ng = 1;
+    // ignore RZ symmetry since this algorithm works only with Cartesian
+    amrex::IntVect cell_type = amrex::IntVect::TheNodeVector();
+
+    // For now, set m_lev to 0, suggested by Lehe et al
+    const amrex::BoxArray& ba = amrex::convert(warpx.boxArray(0), cell_type);
+    // need to figure out what is warpx.n_rz_azimuthal_modes
+    amrex::MultiFab divEfield(ba, warpx.DistributionMap(0), 2*warpx.n_rz_azimuthal_modes-1, ng );
+    warpx.ComputeDivE(divEfield, 0);
+
     // Loop through the grids, and over the tiles within each grid
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -139,6 +151,8 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         Array4<Real> const& jz = Jfield[2]->array(mfi);
         // Get rho from this rho grid/tile
         Array4<Real> const& rho = rhofield->array(mfi);
+        // Get divE
+        Array4<Real> const& divE = divEfield.array(mfi);
 
         // Extract stencil coefficients
         Real const * const AMREX_RESTRICT coefs_x = m_stencil_coefs_x.dataPtr();
@@ -159,18 +173,6 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
 
         // Get the Lorentz factor
         amrex::Real gamma_boost = warpx.gamma_boost;
-
-        // Compute divE for calculating charge density responsible for
-        // the conductor
-        constexpr int ng = 1;
-        // ignore RZ symmetry since this algorithm works only with Cartesian
-        amrex::IntVect cell_type = amrex::IntVect::TheNodeVector();
-
-        // For now, set m_lev to 0, suggested by Lehe et al
-        const amrex::BoxArray& ba = amrex::convert(warpx.boxArray(0), cell_type);
-        // need to figure out what is warpx.n_rz_azimuthal_modes
-        amrex::MultiFab divE(ba, warpx.DistributionMap(0), 2*warpx.n_rz_azimuthal_modes-1, ng );
-        warpx.ComputeDivE(divE, 0);
 
         // Loop over the cells and update the fields
         amrex::ParallelFor(tex, tey, tez,
@@ -222,8 +224,8 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
                             + alpha2z * ( - T_Algo::DownwardDy(Hx, coefs_y, n_coefs_y, i, j, k, 0)
                                           + T_Algo::DownwardDx(Hy, coefs_x, n_coefs_x, i, j, k, 0) )
                             - alpha2z * jz(i, j, k)
-                            + alpha3z * rho(i, j, k + 1, 0)
-                            + alpha3z * rho(i, j, k, 0);
+                            + alpha3z * (divE(i, j, k + 1) - rho(i, j, k + 1, 0))
+                            + alpha3z * (divE(i, j, k) - rho(i, j, k, 0));
             }
         );
     }
