@@ -274,6 +274,19 @@ struct LaxWendroffAlgoBoostConductor {
          return alpha2z;
      }
 
+     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+     static amrex::Real alpha3z (amrex::Real const sigma,
+                                 amrex::Real const epsilon,
+                                 amrex::Real dt,
+                                 amrex::Real gamma_boost) {
+         using namespace amrex;
+         amrex::Real clight = PhysConst::c;
+         amrex::Real fac1 = sigma * dt / (epsilon * gamma_boost);
+         amrex::Real beta_boost = std::sqrt( 1._rt - 1._rt/( gamma_boost * gamma_boost) );
+         amrex::Real alpha3z = 0.5_rt * beta_boost * clight * dt / (epsilon * (1._rt + fac1));
+         return alpha3z;
+     }
+
 };
 
 /**
@@ -341,6 +354,19 @@ struct BackwardEulerAlgoBoostConductor {
          amrex::Real fac1 = sigma * dt / (epsilon * gamma_boost);
          amrex::Real alpha2z = dt / (epsilon * (1._rt + fac1));
          return alpha2z;
+     }
+
+     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+     static amrex::Real alpha3z (amrex::Real const sigma,
+                                 amrex::Real const epsilon,
+                                 amrex::Real dt,
+                                 amrex::Real gamma_boost) {
+         using namespace amrex;
+         amrex::Real clight = PhysConst::c;
+         amrex::Real fac1 = sigma * dt / (epsilon * gamma_boost);
+         amrex::Real beta_boost = std::sqrt( 1._rt - 1._rt/( gamma_boost * gamma_boost) );
+         amrex::Real alpha3z = 0.5_rt * beta_boost * clight * dt / (epsilon * (1._rt + fac1));
+         return alpha3z;
      }
 
 };

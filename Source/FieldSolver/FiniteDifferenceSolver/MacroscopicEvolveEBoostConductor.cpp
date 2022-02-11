@@ -215,12 +215,15 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
                 // coefficients for the update rule of Ez only
                 amrex::Real alpha1z = T_MacroAlgo::alpha1z( sigma, epsilon, dt, gamma_boost);
                 amrex::Real alpha2z = T_MacroAlgo::alpha2z( sigma, epsilon, dt, gamma_boost);
+                amrex::Real alpha3z = T_MacroAlgo::alpha3z( sigma, epsilon, dt, gamma_boost);
                 // Warning ! This segment of code is not completed yet
                 // rho is needed to be taken account of
                 Ez(i, j, k) = alpha1z * Ez(i, j, k)
                             + alpha2z * ( - T_Algo::DownwardDy(Hx, coefs_y, n_coefs_y, i, j, k, 0)
                                           + T_Algo::DownwardDx(Hy, coefs_x, n_coefs_x, i, j, k, 0) )
-                            - alpha2z * jz(i, j, k);
+                            - alpha2z * jz(i, j, k)
+                            + alpha3z * rho(i, j, k + 1, 0)
+                            + alpha3z * rho(i, j, k, 0);
             }
         );
     }
