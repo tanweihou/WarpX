@@ -39,7 +39,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
     std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Jfield,
     std::unique_ptr<amrex::MultiFab> const& rhofield,
     amrex::Real const dt,
-    std::unique_ptr<MacroscopicProperties> const& macroscopic_properties, int const lev)
+    std::unique_ptr<MacroscopicProperties> const& macroscopic_properties)
 {
 
    // Select algorithm (The choice of algorithm is a runtime option,
@@ -56,13 +56,13 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
         if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::LaxWendroff) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianYeeAlgorithm, LaxWendroffAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties);
 
         }
         if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::BackwardEuler) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianYeeAlgorithm, BackwardEulerAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties);
 
         }
 
@@ -73,12 +73,12 @@ void FiniteDifferenceSolver::MacroscopicEvolveEBoostConductor (
         if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::LaxWendroff) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianCKCAlgorithm, LaxWendroffAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties);
 
         } else if (WarpX::macroscopic_solver_algo == MacroscopicSolverAlgo::BackwardEuler) {
 
             MacroscopicEvolveECartesianBoostConductor <CartesianCKCAlgorithm, BackwardEulerAlgoBoostConductor>
-                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties, lev );
+                       ( Efield, Bfield, Jfield, rhofield, dt, macroscopic_properties);
 
         }
 
@@ -104,22 +104,23 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
     std::array< std::unique_ptr<amrex::MultiFab>, 3 > const& Jfield,
     std::unique_ptr<amrex::MultiFab> const& rhofield,
     amrex::Real const dt,
-    std::unique_ptr<MacroscopicProperties> const& macroscopic_properties, int const lev)
+    std::unique_ptr<MacroscopicProperties> const& macroscopic_properties)
 {
 
+    amrex::MultiFab& sigma_mf = macroscopic_properties->getsigma_mf();
+    amrex::MultiFab& epsilon_mf = macroscopic_properties->getepsilon_mf();
+    amrex::MultiFab& mu_mf = macroscopic_properties->getmu_mf();
+
+    // Index type required for calling CoarsenIO::Interp to interpolate macroscopic
+    // properties from their respective staggering to the Ex, Ey, Ez locations
+    amrex::GpuArray<int, 3> const& sigma_stag = macroscopic_properties->sigma_IndexType;
+    amrex::GpuArray<int, 3> const& epsilon_stag = macroscopic_properties->epsilon_IndexType;
+    amrex::GpuArray<int, 3> const& macro_cr     = macroscopic_properties->macro_cr_ratio;
     amrex::GpuArray<int, 3> const& Ex_stag = macroscopic_properties->Ex_IndexType;
     amrex::GpuArray<int, 3> const& Ey_stag = macroscopic_properties->Ey_IndexType;
     amrex::GpuArray<int, 3> const& Ez_stag = macroscopic_properties->Ez_IndexType;
-    amrex::GpuArray<int, 3> const& Bx_stag = macroscopic_properties->Bx_IndexType;
-    amrex::GpuArray<int, 3> const& By_stag = macroscopic_properties->By_IndexType;
-    amrex::GpuArray<int, 3> const& Bz_stag = macroscopic_properties->Bz_IndexType;
 
-    const auto getSigma = GetSigmaMacroparameter();
-    const auto getEpsilon = GetEpsilonMacroparameter();
-    const auto getMu = GetMuMacroparameter();
     auto &warpx = WarpX::GetInstance();
-    const auto problo = warpx.Geom(lev).ProbLoArray();
-    const auto dx = warpx.Geom(lev).CellSizeArray();
 
     // Compute divE for calculating charge density responsible for
     // the conductor
@@ -154,6 +155,11 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         // Get divE
         Array4<Real> const& divE = divEfield.array(mfi);
 
+        // material prop //
+        amrex::Array4<amrex::Real> const& sigma_arr = sigma_mf.array(mfi);
+        amrex::Array4<amrex::Real> const& eps_arr = epsilon_mf.array(mfi);
+        amrex::Array4<amrex::Real> const& mu_arr = mu_mf.array(mfi);
+
         // Extract stencil coefficients
         Real const * const AMREX_RESTRICT coefs_x = m_stencil_coefs_x.dataPtr();
         int const n_coefs_x = m_stencil_coefs_x.size();
@@ -162,9 +168,12 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         Real const * const AMREX_RESTRICT coefs_z = m_stencil_coefs_z.dataPtr();
         int const n_coefs_z = m_stencil_coefs_z.size();
 
-        FieldAccessorMacroscopic<GetMuMacroparameter> const Hx(Bx, getMu, Bx_stag, problo, dx);
-        FieldAccessorMacroscopic<GetMuMacroparameter> const Hy(By, getMu, By_stag, problo, dx);
-        FieldAccessorMacroscopic<GetMuMacroparameter> const Hz(Bz, getMu, Bz_stag, problo, dx);
+        // This functor computes Hx = Bx/mu
+        // Note that mu is cell-centered here and will be interpolated/averaged
+        // to the location where the B-field and H-field are defined
+        FieldAccessorMacroscopic const Hx(Bx, mu_arr);
+        FieldAccessorMacroscopic const Hy(By, mu_arr);
+        FieldAccessorMacroscopic const Hz(Bz, mu_arr);
 
         // Extract tileboxes for which to loop
         Box const& tex  = mfi.tilebox(Efield[0]->ixType().toIntVect());
@@ -174,17 +183,20 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
         // Get the Lorentz factor
         amrex::Real gamma_boost = warpx.gamma_boost;
 
+        // starting component to interpolate macro properties to Ex, Ey, Ez locations
+        const int scomp = 0;
         // Loop over the cells and update the fields
         amrex::ParallelFor(tex, tey, tez,
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
-                amrex::Real x, y, z;
-                WarpXUtilAlgo::getCellCoordinates (i, j, k, Ex_stag, problo, dx,
-                                                   x, y, z );
-                amrex::Real const sigma = getSigma(x, y, z);
-                amrex::Real const epsilon = getEpsilon(x, y, z);
-                amrex::Real alpha1xy = T_MacroAlgo::alpha1xy( sigma, epsilon, dt, gamma_boost);
-                amrex::Real alpha2xy = T_MacroAlgo::alpha2xy( sigma, epsilon, dt, gamma_boost);
-                amrex::Real alpha3xy = T_MacroAlgo::alpha3xy( sigma, epsilon, dt, gamma_boost);
+                // Interpolate conductivity, sigma, to Ex position on the grid
+                amrex::Real const sigma_interp = CoarsenIO::Interp( sigma_arr, sigma_stag,
+                                           Ex_stag, macro_cr, i, j, k, scomp);
+                // Interpolated permittivity, epsilon, to Ex position on the grid
+                amrex::Real const epsilon_interp = CoarsenIO::Interp( eps_arr, epsilon_stag,
+                                           Ex_stag, macro_cr, i, j, k, scomp);
+                amrex::Real alpha1xy = T_MacroAlgo::alpha1xy( sigma_interp, epsilon_interp, dt, gamma_boost);
+                amrex::Real alpha2xy = T_MacroAlgo::alpha2xy( sigma_interp, epsilon_interp, dt, gamma_boost);
+                amrex::Real alpha3xy = T_MacroAlgo::alpha3xy( sigma_interp, epsilon_interp, dt, gamma_boost);
                 Ex(i, j, k) = alpha1xy * Ex(i, j, k)
                             + alpha2xy * ( - T_Algo::DownwardDz(Hy, coefs_z, n_coefs_z, i, j, k, 0)
                                            + T_Algo::DownwardDy(Hz, coefs_y, n_coefs_y, i, j, k, 0) )
@@ -193,14 +205,15 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
             },
 
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
-                amrex::Real x, y, z;
-                WarpXUtilAlgo::getCellCoordinates (i, j, k, Ey_stag, problo, dx,
-                                                   x, y, z );
-                amrex::Real const sigma = getSigma(x, y, z);
-                amrex::Real const epsilon = getEpsilon(x, y, z);
-                amrex::Real alpha1xy = T_MacroAlgo::alpha1xy( sigma, epsilon, dt, gamma_boost);
-                amrex::Real alpha2xy = T_MacroAlgo::alpha2xy( sigma, epsilon, dt, gamma_boost);
-                amrex::Real alpha3xy = T_MacroAlgo::alpha3xy( sigma, epsilon, dt, gamma_boost);
+                // Interpolate conductivity, sigma, to Ey position on the grid
+                amrex::Real const sigma_interp = CoarsenIO::Interp( sigma_arr, sigma_stag,
+                                           Ey_stag, macro_cr, i, j, k, scomp);
+                // Interpolated permittivity, epsilon, to Ey position on the grid
+                amrex::Real const epsilon_interp = CoarsenIO::Interp( eps_arr, epsilon_stag,
+                                           Ey_stag, macro_cr, i, j, k, scomp);
+                amrex::Real alpha1xy = T_MacroAlgo::alpha1xy( sigma_interp, epsilon_interp, dt, gamma_boost);
+                amrex::Real alpha2xy = T_MacroAlgo::alpha2xy( sigma_interp, epsilon_interp, dt, gamma_boost);
+                amrex::Real alpha3xy = T_MacroAlgo::alpha3xy( sigma_interp, epsilon_interp, dt, gamma_boost);
                 Ey(i, j, k) = alpha1xy * Ey(i, j, k)
                             + alpha2xy * ( - T_Algo::DownwardDx(Hz, coefs_x, n_coefs_x, i, j, k, 0)
                                            + T_Algo::DownwardDz(Hx, coefs_z, n_coefs_z, i, j, k, 0) )
@@ -209,23 +222,24 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
             },
 
             [=] AMREX_GPU_DEVICE (int i, int j, int k){
-                amrex::Real x, y, z;
-                WarpXUtilAlgo::getCellCoordinates (i, j, k, Ez_stag, problo, dx,
-                                                   x, y, z );
-                amrex::Real const sigma = getSigma(x, y, z);
-                amrex::Real const epsilon = getEpsilon(x, y, z);
+                // Interpolate conductivity, sigma, to Ez position on the grid
+                amrex::Real const sigma_interp = CoarsenIO::Interp( sigma_arr, sigma_stag,
+                                           Ez_stag, macro_cr, i, j, k, scomp);
+                // Interpolated permittivity, epsilon, to Ez position on the grid
+                amrex::Real const epsilon_interp = CoarsenIO::Interp( eps_arr, epsilon_stag,
+                                           Ez_stag, macro_cr, i, j, k, scomp);
                 // coefficients for the update rule of Ez only
-                amrex::Real alpha1z = T_MacroAlgo::alpha1z( sigma, epsilon, dt, gamma_boost);
-                amrex::Real alpha2z = T_MacroAlgo::alpha2z( sigma, epsilon, dt, gamma_boost);
-                amrex::Real alpha3z = T_MacroAlgo::alpha3z( sigma, epsilon, dt, gamma_boost);
+                amrex::Real alpha1z = T_MacroAlgo::alpha1z( sigma_interp, epsilon_interp, dt, gamma_boost);
+                amrex::Real alpha2z = T_MacroAlgo::alpha2z( sigma_interp, epsilon_interp, dt, gamma_boost);
+                amrex::Real alpha3z = T_MacroAlgo::alpha3z( sigma_interp, epsilon_interp, dt, gamma_boost);
                 // Warning ! This segment of code is not completed yet
                 // rho is needed to be taken account of
                 Ez(i, j, k) = alpha1z * Ez(i, j, k)
                             + alpha2z * ( - T_Algo::DownwardDy(Hx, coefs_y, n_coefs_y, i, j, k, 0)
                                           + T_Algo::DownwardDx(Hy, coefs_x, n_coefs_x, i, j, k, 0) )
                             - alpha2z * jz(i, j, k)
-                            + alpha3z * (epsilon * divE(i, j, k + 1) - rho(i, j, k + 1, 0))
-                            + alpha3z * (epsilon * divE(i, j, k) - rho(i, j, k, 0));
+                            + alpha3z * (epsilon_interp * divE(i, j, k + 1) - rho(i, j, k + 1, 0))
+                            + alpha3z * (epsilon_interp * divE(i, j, k) - rho(i, j, k, 0));
             }
         );
     }
