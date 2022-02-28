@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2019-2021 Luca Fedeli, Yinjian Zhao
 #
@@ -11,12 +11,16 @@
 # Various particle and field quantities are written to file using the reduced diagnostics
 # and compared with the corresponding quantities computed from the data in the plotfiles.
 
+import os
 import sys
-import yt
+
 import numpy as np
-from scipy.constants import c, m_e, m_p
-from scipy.constants import mu_0 as mu0
+from scipy.constants import c
 from scipy.constants import epsilon_0 as eps0
+from scipy.constants import m_e, m_p
+from scipy.constants import mu_0 as mu0
+import yt
+
 sys.path.insert(1, '../../../../warpx/Regression/Checksum/')
 import checksumAPI
 
@@ -156,18 +160,18 @@ def do_analysis(single_precision = False):
 
     # Load 3D data from plotfiles
     ad = ds.covering_grid(level=0, left_edge=ds.domain_left_edge, dims=ds.domain_dimensions)
-    Ex = ad['Ex'].to_ndarray()
-    Ey = ad['Ey'].to_ndarray()
-    Ez = ad['Ez'].to_ndarray()
-    Bx = ad['Bx'].to_ndarray()
-    By = ad['By'].to_ndarray()
-    Bz = ad['Bz'].to_ndarray()
-    rho = ad['rho'].to_ndarray()
-    rho_electrons = ad['rho_electrons'].to_ndarray()
-    rho_protons = ad['rho_protons'].to_ndarray()
-    x = ad['x'].to_ndarray()
-    y = ad['y'].to_ndarray()
-    z = ad['z'].to_ndarray()
+    Ex = ad[('mesh','Ex')].to_ndarray()
+    Ey = ad[('mesh','Ey')].to_ndarray()
+    Ez = ad[('mesh','Ez')].to_ndarray()
+    Bx = ad[('mesh','Bx')].to_ndarray()
+    By = ad[('mesh','By')].to_ndarray()
+    Bz = ad[('mesh','Bz')].to_ndarray()
+    rho = ad[('boxlib','rho')].to_ndarray()
+    rho_electrons = ad[('boxlib','rho_electrons')].to_ndarray()
+    rho_protons = ad[('boxlib','rho_protons')].to_ndarray()
+    x = ad[('boxlib','x')].to_ndarray()
+    y = ad[('boxlib','y')].to_ndarray()
+    z = ad[('boxlib','z')].to_ndarray()
 
     # Field energy
     E2 = np.sum(Ex**2) + np.sum(Ey**2) + np.sum(Ez**2)
@@ -301,5 +305,5 @@ def do_analysis(single_precision = False):
         assert(error[k] < tol)
         print()
 
-    test_name = fn[:-9] # Could also be os.path.split(os.getcwd())[1]
+    test_name = os.path.split(os.getcwd())[1]
     checksumAPI.evaluate_checksum(test_name, fn)
