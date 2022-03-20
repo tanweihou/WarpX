@@ -447,6 +447,10 @@ public:
     void MacroscopicEvolveE (int lev, amrex::Real dt);
     void MacroscopicEvolveE (int lev, PatchType patch_type, amrex::Real dt);
 
+    void MacroscopicEvolveEBoostConductor (         amrex::Real dt);
+    void MacroscopicEvolveEBoostConductor (int lev, amrex::Real dt);
+    void MacroscopicEvolveEBoostConductor (int lev, PatchType patch_type, amrex::Real dt);
+
     /** apply QED correction on electric field
      *
      * \param dt vector of time steps (for all levels)

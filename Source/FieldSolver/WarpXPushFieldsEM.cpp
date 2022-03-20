@@ -768,6 +768,56 @@ WarpX::MacroscopicEvolveE (int lev, PatchType patch_type, amrex::Real a_dt) {
     ApplyEfieldBoundary(lev, patch_type);
 }
 
+// Macroscopic solver for E-field in boosted frame, only for finite conductivity
+void
+WarpX::MacroscopicEvolveEBoostConductor (amrex::Real a_dt)
+{
+    for (int lev = 0; lev <= finest_level; ++lev ) {
+        MacroscopicEvolveEBoostConductor(lev, a_dt);
+    }
+}
+
+void
+WarpX::MacroscopicEvolveEBoostConductor (int lev, amrex::Real a_dt) {
+
+    WARPX_PROFILE("WarpX::MacroscopicEvolveEBoostConductor()");
+    MacroscopicEvolveEBoostConductor(lev, PatchType::fine, a_dt);
+    if (lev > 0) {
+        amrex::Abort("Macroscopic EvolveE Boost Conductor is not implemented for lev>0, yet.");
+    }
+}
+
+void
+WarpX::MacroscopicEvolveEBoostConductor (int lev, PatchType patch_type, amrex::Real a_dt) {
+    if (patch_type == PatchType::fine) {
+        m_fdtd_solver_fp[lev]->MacroscopicEvolveEBoostConductor( Efield_fp[lev], Bfield_fp[lev],
+                                             current_fp[lev], rho_fp[lev], a_dt,
+                                             m_macroscopic_properties);
+    }
+    else {
+        amrex::Abort("Macroscopic EvolveE Boost Conductor is not implemented for lev > 0, yet.");
+    }
+    if (do_pml && pml[lev]->ok()) {
+        if (patch_type == PatchType::fine) {
+            m_fdtd_solver_fp[lev]->EvolveEPML(
+                pml[lev]->GetE_fp(), pml[lev]->GetB_fp(),
+                pml[lev]->Getj_fp(), pml[lev]->Get_edge_lengths(),
+                pml[lev]->GetF_fp(),
+                pml[lev]->GetMultiSigmaBox_fp(),
+                a_dt, pml_has_particles );
+        } else {
+            m_fdtd_solver_cp[lev]->EvolveEPML(
+                pml[lev]->GetE_cp(), pml[lev]->GetB_cp(),
+                pml[lev]->Getj_cp(), pml[lev]->Get_edge_lengths(),
+                pml[lev]->GetF_cp(),
+                pml[lev]->GetMultiSigmaBox_cp(),
+                a_dt, pml_has_particles );
+        }
+    }
+
+    ApplyEfieldBoundary(lev, patch_type);
+}
+
 void
 WarpX::DampFieldsInGuards(const int lev,
                           std::array<std::unique_ptr<amrex::MultiFab>,3>& Efield,

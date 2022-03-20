@@ -454,7 +454,13 @@ WarpX::OneStep_nosub (Real cur_time)
             EvolveE(dt[0]); // We now have E^{n+1}
         } else if (WarpX::em_solver_medium == MediumForEM::Macroscopic) {
             // macroscopic medium
-            MacroscopicEvolveE(dt[0]); // We now have E^{n+1}
+            if (gamma_boost > 1 || boost_conductor){
+                // Above OR statement is only for testing boosted frame solver in lab frame
+                // Since it should also work for gamma_boost=1
+                MacroscopicEvolveEBoostConductor(dt[0]); // We now have E^{n+1}
+            } else {
+                MacroscopicEvolveE(dt[0]); // We now have E^{n+1}
+            }
         } else {
             amrex::Abort(" Medium for EM is unknown \n");
         }
