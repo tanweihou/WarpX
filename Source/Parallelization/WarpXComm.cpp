@@ -15,6 +15,7 @@
 #include "Filter/BilinearFilter.H"
 #include "Utils/CoarsenMR.H"
 #include "Utils/IntervalsParser.H"
+#include "Utils/TextMsg.H"
 #include "Utils/WarpXAlgorithmSelection.H"
 #include "Utils/WarpXProfilerWrapper.H"
 #include "WarpXComm_K.H"
@@ -65,7 +66,7 @@ WarpX::UpdateAuxilaryDataStagToNodal ()
 {
 #ifndef WARPX_USE_PSATD
     if (maxwell_solver_id == MaxwellSolverAlgo::PSATD) {
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE( false,
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE( false,
             "WarpX::UpdateAuxilaryDataStagToNodal: PSATD solver requires "
             "WarpX build with spectral solver support.");
     }
@@ -112,52 +113,36 @@ WarpX::UpdateAuxilaryDataStagToNodal ()
         // for out-of-bound accesses due to large-stencil operations)
         Box bx = mfi.growntilebox();
 
-        if (maxwell_solver_id == MaxwellSolverAlgo::PSATD) {
+        // Order of finite-order centering of fields
+        const int fg_nox = WarpX::field_centering_nox;
+        const int fg_noy = WarpX::field_centering_noy;
+        const int fg_noz = WarpX::field_centering_noz;
 
-#ifdef WARPX_USE_PSATD
+        // Device vectors of stencil coefficients used for finite-order centering of fields
+        amrex::Real const * stencil_coeffs_x = WarpX::device_field_centering_stencil_coeffs_x.data();
+        amrex::Real const * stencil_coeffs_y = WarpX::device_field_centering_stencil_coeffs_y.data();
+        amrex::Real const * stencil_coeffs_z = WarpX::device_field_centering_stencil_coeffs_z.data();
 
-            // Order of finite-order centering of fields
-            const int fg_nox = WarpX::field_centering_nox;
-            const int fg_noy = WarpX::field_centering_noy;
-            const int fg_noz = WarpX::field_centering_noz;
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int j, int k, int l) noexcept
+        {
+            warpx_interp(j, k, l, bx_aux, bx_fp, dst_stag, Bx_stag, fg_nox, fg_noy, fg_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
 
-            // Device vectors of stencil coefficients used for finite-order centering of fields
-            amrex::Real const * stencil_coeffs_x = WarpX::device_field_centering_stencil_coeffs_x.data();
-            amrex::Real const * stencil_coeffs_y = WarpX::device_field_centering_stencil_coeffs_y.data();
-            amrex::Real const * stencil_coeffs_z = WarpX::device_field_centering_stencil_coeffs_z.data();
+            warpx_interp(j, k, l, by_aux, by_fp, dst_stag, By_stag, fg_nox, fg_noy, fg_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
 
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int j, int k, int l) noexcept
-            {
-                warpx_interp<true>(j, k, l, bx_aux, bx_fp, dst_stag, Bx_stag, fg_nox, fg_noy, fg_noz,
-                             stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
+            warpx_interp(j, k, l, bz_aux, bz_fp, dst_stag, Bz_stag, fg_nox, fg_noy, fg_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
 
-                warpx_interp<true>(j, k, l, by_aux, by_fp, dst_stag, By_stag, fg_nox, fg_noy, fg_noz,
-                             stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
+            warpx_interp(j, k, l, ex_aux, ex_fp, dst_stag, Ex_stag, fg_nox, fg_noy, fg_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
 
-                warpx_interp<true>(j, k, l, bz_aux, bz_fp, dst_stag, Bz_stag, fg_nox, fg_noy, fg_noz,
-                             stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
+            warpx_interp(j, k, l, ey_aux, ey_fp, dst_stag, Ey_stag, fg_nox, fg_noy, fg_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
 
-                warpx_interp<true>(j, k, l, ex_aux, ex_fp, dst_stag, Ex_stag, fg_nox, fg_noy, fg_noz,
-                             stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
-
-                warpx_interp<true>(j, k, l, ey_aux, ey_fp, dst_stag, Ey_stag, fg_nox, fg_noy, fg_noz,
-                             stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
-
-                warpx_interp<true>(j, k, l, ez_aux, ez_fp, dst_stag, Ez_stag, fg_nox, fg_noy, fg_noz,
-                             stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
-            });
-#endif
-        } else { // FDTD
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int j, int k, int l) noexcept
-            {
-                warpx_interp(j, k, l, bx_aux, bx_fp, dst_stag, Bx_stag);
-                warpx_interp(j, k, l, by_aux, by_fp, dst_stag, By_stag);
-                warpx_interp(j, k, l, bz_aux, bz_fp, dst_stag, Bz_stag);
-                warpx_interp(j, k, l, ex_aux, ex_fp, dst_stag, Ex_stag);
-                warpx_interp(j, k, l, ey_aux, ey_fp, dst_stag, Ey_stag);
-                warpx_interp(j, k, l, ez_aux, ez_fp, dst_stag, Ez_stag);
-            });
-        }
+            warpx_interp(j, k, l, ez_aux, ez_fp, dst_stag, Ez_stag, fg_nox, fg_noy, fg_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
+        });
     }
 
     // NOTE: high-order interpolation is not implemented for mesh refinement
@@ -452,35 +437,21 @@ void WarpX::UpdateCurrentNodalToStag (amrex::MultiFab& dst, amrex::MultiFab cons
         amrex::Array4<amrex::Real const> const& src_arr = src.const_array(mfi);
         amrex::Array4<amrex::Real>       const& dst_arr = dst.array(mfi);
 
-        if (maxwell_solver_id == MaxwellSolverAlgo::PSATD)
+        // Order of finite-order centering of currents
+        const int cc_nox = WarpX::current_centering_nox;
+        const int cc_noy = WarpX::current_centering_noy;
+        const int cc_noz = WarpX::current_centering_noz;
+
+        // Device vectors of stencil coefficients used for finite-order centering of currents
+        amrex::Real const * stencil_coeffs_x = WarpX::device_current_centering_stencil_coeffs_x.data();
+        amrex::Real const * stencil_coeffs_y = WarpX::device_current_centering_stencil_coeffs_y.data();
+        amrex::Real const * stencil_coeffs_z = WarpX::device_current_centering_stencil_coeffs_z.data();
+
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int j, int k, int l) noexcept
         {
-#ifdef WARPX_USE_PSATD
-
-            // Order of finite-order centering of currents
-            const int cc_nox = WarpX::current_centering_nox;
-            const int cc_noy = WarpX::current_centering_noy;
-            const int cc_noz = WarpX::current_centering_noz;
-
-            // Device vectors of stencil coefficients used for finite-order centering of currents
-            amrex::Real const * stencil_coeffs_x = WarpX::device_current_centering_stencil_coeffs_x.data();
-            amrex::Real const * stencil_coeffs_y = WarpX::device_current_centering_stencil_coeffs_y.data();
-            amrex::Real const * stencil_coeffs_z = WarpX::device_current_centering_stencil_coeffs_z.data();
-
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int j, int k, int l) noexcept
-            {
-                warpx_interp<true>(j, k, l, dst_arr, src_arr, dst_stag, src_stag, cc_nox, cc_noy, cc_noz,
-                                   stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
-            });
-#endif
-        }
-
-        else // FDTD
-        {
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int j, int k, int l) noexcept
-            {
-                warpx_interp<false>(j, k, l, dst_arr, src_arr, dst_stag, src_stag);
-            });
-        }
+            warpx_interp(j, k, l, dst_arr, src_arr, dst_stag, src_stag, cc_nox, cc_noy, cc_noz,
+                         stencil_coeffs_x, stencil_coeffs_y, stencil_coeffs_z);
+        });
     }
 }
 
@@ -587,7 +558,7 @@ WarpX::FillBoundaryE (const int lev, const PatchType patch_type, const amrex::In
     // Fill guard cells in valid domain
     for (int i = 0; i < 3; ++i)
     {
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             ng <= mf[i]->nGrowVect(),
             "Error: in FillBoundaryE, requested more guard cells than allocated");
 
@@ -644,7 +615,7 @@ WarpX::FillBoundaryB (const int lev, const PatchType patch_type, const amrex::In
     // Fill guard cells in valid domain
     for (int i = 0; i < 3; ++i)
     {
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
             ng <= mf[i]->nGrowVect(),
             "Error: in FillBoundaryB, requested more guard cells than allocated");
 
@@ -675,7 +646,7 @@ WarpX::FillBoundaryE_avg (int lev, PatchType patch_type, IntVect ng)
             Vector<MultiFab*> mf{Efield_avg_fp[lev][0].get(),Efield_avg_fp[lev][1].get(),Efield_avg_fp[lev][2].get()};
             WarpXCommUtil::FillBoundary(mf, period);
         } else {
-            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 ng <= Efield_avg_fp[lev][0]->nGrowVect(),
                 "Error: in FillBoundaryE_avg, requested more guard cells than allocated");
             WarpXCommUtil::FillBoundary(*Efield_avg_fp[lev][0], ng, period);
@@ -696,7 +667,7 @@ WarpX::FillBoundaryE_avg (int lev, PatchType patch_type, IntVect ng)
             WarpXCommUtil::FillBoundary(mf, cperiod);
 
         } else {
-            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 ng <= Efield_avg_cp[lev][0]->nGrowVect(),
                 "Error: in FillBoundaryE, requested more guard cells than allocated");
             WarpXCommUtil::FillBoundary(*Efield_avg_cp[lev][0], ng, cperiod);
@@ -728,7 +699,7 @@ WarpX::FillBoundaryB_avg (int lev, PatchType patch_type, IntVect ng)
             Vector<MultiFab*> mf{Bfield_avg_fp[lev][0].get(),Bfield_avg_fp[lev][1].get(),Bfield_avg_fp[lev][2].get()};
             WarpXCommUtil::FillBoundary(mf, period);
         } else {
-            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 ng <= Bfield_fp[lev][0]->nGrowVect(),
                 "Error: in FillBoundaryB, requested more guard cells than allocated");
             WarpXCommUtil::FillBoundary(*Bfield_avg_fp[lev][0], ng, period);
@@ -748,7 +719,7 @@ WarpX::FillBoundaryB_avg (int lev, PatchType patch_type, IntVect ng)
             Vector<MultiFab*> mf{Bfield_avg_cp[lev][0].get(),Bfield_avg_cp[lev][1].get(),Bfield_avg_cp[lev][2].get()};
             WarpXCommUtil::FillBoundary(mf, cperiod);
         } else {
-            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            WARPX_ALWAYS_ASSERT_WITH_MESSAGE(
                 ng <= Bfield_avg_cp[lev][0]->nGrowVect(),
                 "Error: in FillBoundaryB_avg, requested more guard cells than allocated");
             WarpXCommUtil::FillBoundary(*Bfield_avg_cp[lev][0], ng, cperiod);
@@ -1045,12 +1016,12 @@ WarpX::AddCurrentFromFineLevelandSumBoundary (int lev)
                 ng_depos_J.min(ng);
                 MultiFab jfc(current_cp[lev+1][idim]->boxArray(),
                              current_cp[lev+1][idim]->DistributionMap(), current_cp[lev+1][idim]->nComp(), ng);
-                bilinear_filter.ApplyStencil(jfc, *current_cp[lev+1][idim], lev);
+                bilinear_filter.ApplyStencil(jfc, *current_cp[lev+1][idim], lev+1);
 
                 // buffer patch of fine level
                 MultiFab jfb(current_buf[lev+1][idim]->boxArray(),
                              current_buf[lev+1][idim]->DistributionMap(), current_buf[lev+1][idim]->nComp(), ng);
-                bilinear_filter.ApplyStencil(jfb, *current_buf[lev+1][idim], lev);
+                bilinear_filter.ApplyStencil(jfb, *current_buf[lev+1][idim], lev+1);
 
                 MultiFab::Add(jfb, jfc, 0, 0, current_buf[lev+1][idim]->nComp(), ng);
                 WarpXCommUtil::ParallelAdd(mf, jfb, 0, 0, current_buf[lev+1][idim]->nComp(), ng, IntVect::TheZeroVector(), period);
@@ -1065,7 +1036,7 @@ WarpX::AddCurrentFromFineLevelandSumBoundary (int lev)
                 ng_depos_J.min(ng);
                 MultiFab jf(current_cp[lev+1][idim]->boxArray(),
                             current_cp[lev+1][idim]->DistributionMap(), current_cp[lev+1][idim]->nComp(), ng);
-                bilinear_filter.ApplyStencil(jf, *current_cp[lev+1][idim], lev);
+                bilinear_filter.ApplyStencil(jf, *current_cp[lev+1][idim], lev+1);
 
                 WarpXCommUtil::ParallelAdd(mf, jf, 0, 0, current_cp[lev+1][idim]->nComp(), ng, IntVect::TheZeroVector(), period);
                 WarpXSumGuardCells(*current_cp[lev+1][idim], jf, period, ng_depos_J, 0, current_cp[lev+1][idim]->nComp());
@@ -1171,12 +1142,12 @@ WarpX::AddRhoFromFineLevelandSumBoundary(int lev, int icomp, int ncomp)
             ng_depos_rho.min(ng);
             MultiFab rhofc(rho_cp[lev+1]->boxArray(),
                          rho_cp[lev+1]->DistributionMap(), ncomp, ng);
-            bilinear_filter.ApplyStencil(rhofc, *rho_cp[lev+1], lev, icomp, 0, ncomp);
+            bilinear_filter.ApplyStencil(rhofc, *rho_cp[lev+1], lev+1, icomp, 0, ncomp);
 
             // buffer patch of fine level
             MultiFab rhofb(charge_buf[lev+1]->boxArray(),
                            charge_buf[lev+1]->DistributionMap(), ncomp, ng);
-            bilinear_filter.ApplyStencil(rhofb, *charge_buf[lev+1], lev, icomp, 0, ncomp);
+            bilinear_filter.ApplyStencil(rhofb, *charge_buf[lev+1], lev+1, icomp, 0, ncomp);
 
             MultiFab::Add(rhofb, rhofc, 0, 0, ncomp, ng);
 
@@ -1189,7 +1160,7 @@ WarpX::AddRhoFromFineLevelandSumBoundary(int lev, int icomp, int ncomp)
             ng_depos_rho += bilinear_filter.stencil_length_each_dir-1;
             ng_depos_rho.min(ng);
             MultiFab rf(rho_cp[lev+1]->boxArray(), rho_cp[lev+1]->DistributionMap(), ncomp, ng);
-            bilinear_filter.ApplyStencil(rf, *rho_cp[lev+1], lev, icomp, 0, ncomp);
+            bilinear_filter.ApplyStencil(rf, *rho_cp[lev+1], lev+1, icomp, 0, ncomp);
 
             WarpXCommUtil::ParallelAdd(mf, rf, 0, 0, ncomp, ng, IntVect::TheZeroVector(), period);
             WarpXSumGuardCells( *rho_cp[lev+1], rf, period, ng_depos_rho, icomp, ncomp );

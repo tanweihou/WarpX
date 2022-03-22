@@ -9,6 +9,7 @@
 #include "Diagnostics/ParticleDiag/ParticleDiag.H"
 #include "FieldIO.H"
 #include "Particles/Filter/FilterFunctors.H"
+#include "Utils/TextMsg.H"
 #include "Utils/RelativeCellPosition.H"
 #include "Utils/WarpXAlgorithmSelection.H"
 #include "Utils/WarpXProfilerWrapper.H"
@@ -443,7 +444,7 @@ WarpXOpenPMDPlot::GetFileName (std::string& filepath)
 void WarpXOpenPMDPlot::SetStep (int ts, const std::string& dirPrefix, int file_min_digits,
                                 bool isBTD)
 {
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(ts >= 0 , "openPMD iterations are unsigned");
+    WARPX_ALWAYS_ASSERT_WITH_MESSAGE(ts >= 0 , "openPMD iterations are unsigned");
 
     m_dirPrefix = dirPrefix;
     m_file_min_digits = file_min_digits;
@@ -664,7 +665,12 @@ WarpXOpenPMDPlot::DumpToFile (ParticleContainer* pc,
                     amrex::ParticleReal const mass, const bool isBTD,
                     int ParticleFlushOffset)
 {
-  AMREX_ALWAYS_ASSERT_WITH_MESSAGE(m_Series != nullptr, "openPMD: series must be initialized");
+  WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_Series != nullptr, "openPMD: series must be initialized");
+
+  AMREX_ALWAYS_ASSERT(write_real_comp.size() == pc->NumRealComps());
+  AMREX_ALWAYS_ASSERT( write_int_comp.size() == pc->NumIntComps());
+  AMREX_ALWAYS_ASSERT(real_comp_names.size() == pc->NumRealComps());
+  AMREX_ALWAYS_ASSERT( int_comp_names.size() == pc->NumIntComps());
 
   WarpXParticleCounter counter(pc);
   if (counter.GetTotalNumParticles() == 0) return;
@@ -719,7 +725,7 @@ WarpXOpenPMDPlot::DumpToFile (ParticleContainer* pc,
       m_doParticleSetUp = true;
   }
   SetupPos(currSpecies, NewParticleVectorSize, charge, mass, isBTD);
-  SetupRealProperties(currSpecies, write_real_comp, real_comp_names, write_int_comp, int_comp_names, NewParticleVectorSize, isBTD);
+  SetupRealProperties(pc, currSpecies, write_real_comp, real_comp_names, write_int_comp, int_comp_names, NewParticleVectorSize, isBTD);
   // open files from all processors, in case some will not contribute below
   m_Series->flush();
   for (auto currentLevel = 0; currentLevel <= pc->finestLevel(); currentLevel++)
@@ -757,8 +763,8 @@ WarpXOpenPMDPlot::DumpToFile (ParticleContainer* pc,
            //   reconstruct x and y from polar coordinates r, theta
            auto const& soa = pti.GetStructOfArrays();
            amrex::ParticleReal const* theta = soa.GetRealData(PIdx::theta).dataPtr();
-           AMREX_ALWAYS_ASSERT_WITH_MESSAGE(theta != nullptr, "openPMD: invalid theta pointer.");
-           AMREX_ALWAYS_ASSERT_WITH_MESSAGE(int(soa.GetRealData(PIdx::theta).size()) == numParticleOnTile,
+           WARPX_ALWAYS_ASSERT_WITH_MESSAGE(theta != nullptr, "openPMD: invalid theta pointer.");
+           WARPX_ALWAYS_ASSERT_WITH_MESSAGE(int(soa.GetRealData(PIdx::theta).size()) == numParticleOnTile,
                                             "openPMD: theta and tile size do not match");
            {
                std::shared_ptr< amrex::ParticleReal > x(
@@ -816,7 +822,8 @@ WarpXOpenPMDPlot::DumpToFile (ParticleContainer* pc,
 }
 
 void
-WarpXOpenPMDPlot::SetupRealProperties (openPMD::ParticleSpecies& currSpecies,
+WarpXOpenPMDPlot::SetupRealProperties (ParticleContainer const * pc,
+                      openPMD::ParticleSpecies& currSpecies,
                       const amrex::Vector<int>& write_real_comp,
                       const amrex::Vector<std::string>& real_comp_names,
                       const amrex::Vector<int>& write_int_comp,
@@ -851,9 +858,10 @@ WarpXOpenPMDPlot::SetupRealProperties (openPMD::ParticleSpecies& currSpecies,
 
     // attributes need to be set only the first time BTD flush is called for a snapshot
     if (isBTD and m_doParticleSetUp == false) return;
+
     std::set< std::string > addedRecords; // add meta-data per record only once
-    for (auto idx=0; idx<m_NumSoARealAttributes; idx++) {
-        auto ii = m_NumAoSRealAttributes + idx; // jump over AoS names
+    for (auto idx=0; idx<pc->NumRealComps(); idx++) {
+        auto ii = ParticleContainer::NStructReal + idx; // jump over extra AoS names
         if (write_real_comp[ii]) {
             // handle scalar and non-scalar records by name
             const auto [record_name, component_name] = detail::name2openPMD(real_comp_names[ii]);
@@ -875,7 +883,7 @@ WarpXOpenPMDPlot::SetupRealProperties (openPMD::ParticleSpecies& currSpecies,
         }
     }
     for (auto idx=0; idx<int_counter; idx++) {
-        auto ii = m_NumAoSIntAttributes + idx; // jump over AoS names
+        auto ii = ParticleContainer::NStructInt + idx; // jump over extra AoS names
         if (write_int_comp[ii]) {
             // handle scalar and non-scalar records by name
             const auto [record_name, component_name] = detail::name2openPMD(int_comp_names[ii]);
@@ -905,20 +913,14 @@ WarpXOpenPMDPlot::SaveRealProperty (ParticleIter& pti,
                        amrex::Vector<std::string> const& int_comp_names) const
 
 {
-  int numOutputReal = 0;
-  int const totalRealAttrs = m_NumAoSRealAttributes + m_NumSoARealAttributes;
-
-  for( int i = 0; i < totalRealAttrs; ++i )
-    if( write_real_comp[i] )
-      ++numOutputReal;
-
   auto const numParticleOnTile = pti.numParticles();
   uint64_t const numParticleOnTile64 = static_cast<uint64_t>( numParticleOnTile );
   auto const& aos = pti.GetArrayOfStructs();  // size =  numParticlesOnTile
   auto const& soa = pti.GetStructOfArrays();
   // first we concatinate the AoS into contiguous arrays
   {
-    for( auto idx=0; idx<m_NumAoSRealAttributes; idx++ ) {
+    // note: WarpX does not yet use extra AoS Real attributes
+    for( auto idx=0; idx<ParticleIter::ContainerType::NStructReal; idx++ ) {  // lgtm [cpp/constant-comparison]
       if( write_real_comp[idx] ) {
           // handle scalar and non-scalar records by name
           const auto [record_name, component_name] = detail::name2openPMD(real_comp_names[idx]);
@@ -949,7 +951,7 @@ WarpXOpenPMDPlot::SaveRealProperty (ParticleIter& pti,
   {
     auto const real_counter = std::min(write_real_comp.size(), real_comp_names.size());
     for (auto idx=0; idx<real_counter; idx++) {
-      auto ii = m_NumAoSRealAttributes + idx;
+      auto ii = ParticleIter::ContainerType::NStructReal + idx;  // jump over extra AoS names
       if (write_real_comp[ii]) {
         getComponentRecord(real_comp_names[ii]).storeChunk(openPMD::shareRaw(soa.GetRealData(idx)),
           {offset}, {numParticleOnTile64});
@@ -960,7 +962,7 @@ WarpXOpenPMDPlot::SaveRealProperty (ParticleIter& pti,
   {
     auto const int_counter = std::min(write_int_comp.size(), int_comp_names.size());
     for (auto idx=0; idx<int_counter; idx++) {
-      auto ii = m_NumAoSIntAttributes + idx; // jump over AoS names
+      auto ii = ParticleIter::ContainerType::NStructInt + idx;  // jump over extra AoS names
       if (write_int_comp[ii]) {
         getComponentRecord(int_comp_names[ii]).storeChunk(openPMD::shareRaw(soa.GetIntData(idx)),
           {offset}, {numParticleOnTile64});
@@ -1178,14 +1180,16 @@ WarpXOpenPMDPlot::WriteOpenPMDFieldsAll ( //const std::string& filename,
                       const std::vector<std::string>& varnames,
                       const amrex::Vector<amrex::MultiFab>& mf,
                       amrex::Vector<amrex::Geometry>& geom,
+                      int output_levels,
                       const int iteration,
-                      const double time, bool isBTD,
+                      const double time,
+                      bool isBTD,
                       const amrex::Geometry& full_BTD_snapshot ) const
 {
   //This is AMReX's tiny profiler. Possibly will apply it later
   WARPX_PROFILE("WarpXOpenPMDPlot::WriteOpenPMDFields()");
 
-  AMREX_ALWAYS_ASSERT_WITH_MESSAGE(m_Series != nullptr, "openPMD series must be initialized");
+  WARPX_ALWAYS_ASSERT_WITH_MESSAGE(m_Series != nullptr, "openPMD series must be initialized");
 
   // is this either a regular write (true) or the first write in a
   // backtransformed diagnostic (BTD):
@@ -1203,27 +1207,29 @@ WarpXOpenPMDPlot::WriteOpenPMDFieldsAll ( //const std::string& filename,
     series_iteration.setTime( time );
   }
 
-  for (int i=0; i<geom.size(); i++) {
-    amrex::Geometry full_geom = geom[i];
+  // loop over levels up to output_levels
+  //   note: this is usually the finestLevel, not the maxLevel
+  for (int lev=0; lev < output_levels; lev++) {
+    amrex::Geometry full_geom = geom[lev];
     if( isBTD )
       full_geom = full_BTD_snapshot;
 
     // setup is called once. So it uses property "period" from first
     // geometry for <all> field levels.
-    if ( (0 == i) && first_write_to_iteration )
+    if ( (0 == lev) && first_write_to_iteration )
       SetupFields(meshes, full_geom);
 
     amrex::Box const & global_box = full_geom.Domain();
     auto const global_size = getReversedVec(global_box.size());
 
-    int const ncomp = mf[i].nComp();
+    int const ncomp = mf[lev].nComp();
     for ( int icomp=0; icomp<ncomp; icomp++ ) {
           std::string const & varname = varnames[icomp];
 
           // assume fields are scalar unless they match the following match of known vector fields
           std::string field_name = varname;
           std::string comp_name = openPMD::MeshRecordComponent::SCALAR;
-          GetMeshCompNames( i, varname, field_name, comp_name );
+          GetMeshCompNames( lev, varname, field_name, comp_name );
 
           auto mesh = meshes[field_name];
           auto mesh_comp = mesh[comp_name];
@@ -1232,16 +1238,16 @@ WarpXOpenPMDPlot::WriteOpenPMDFieldsAll ( //const std::string& filename,
              SetupMeshComp( mesh, full_geom, mesh_comp );
              detail::setOpenPMDUnit( mesh, field_name );
 
-             auto relative_cell_pos = utils::getRelativeCellPosition(mf[i]);     // AMReX Fortran index order
+             auto relative_cell_pos = utils::getRelativeCellPosition(mf[lev]);     // AMReX Fortran index order
              std::reverse( relative_cell_pos.begin(), relative_cell_pos.end() ); // now in C order
              mesh_comp.setPosition( relative_cell_pos );
            }
 
            // Loop through the multifab, and store each box as a chunk,
            // in the openPMD file.
-           for( amrex::MFIter mfi(mf[i]); mfi.isValid(); ++mfi )
+           for( amrex::MFIter mfi(mf[lev]); mfi.isValid(); ++mfi )
            {
-                amrex::FArrayBox const& fab = mf[i][mfi];
+                amrex::FArrayBox const& fab = mf[lev][mfi];
                 amrex::Box const& local_box = fab.box();
 
                 // Determine the offset and size of this chunk
