@@ -238,7 +238,7 @@ void FiniteDifferenceSolver::MacroscopicEvolveECartesianBoostConductor (
                             + alpha2z * ( - T_Algo::DownwardDy(Hx, coefs_y, n_coefs_y, i, j, k, 0)
                                           + T_Algo::DownwardDx(Hy, coefs_x, n_coefs_x, i, j, k, 0) )
                             - alpha2z * jz(i, j, k)
-                            + alpha3z * (epsilon_interp * divE(i, j, k + 1) - rho(i, j, k + 1, 0))
+                            + alpha3z * (epsilon_interp * divE(i, j, k) - rho(i, j, k + 1, 0))
                             + alpha3z * (epsilon_interp * divE(i, j, k) - rho(i, j, k, 0));
             }
         );

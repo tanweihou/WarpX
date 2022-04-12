@@ -769,8 +769,8 @@ WarpX::ReadParameters ()
         // If true, check if gamma_boost > 1 and boost_direction is z
         pp_warpx.query("boost_conductor", boost_conductor);
         if (boost_conductor) {
-            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(gamma_boost > 1.0,
-                 "gamma_boost must be > 1 to use the boosted frame solver for finite conductivity");
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(gamma_boost >= 1.0,
+                 "gamma_boost must be >= 1 to use the boosted frame solver for finite conductivity");
             std::string s;
             pp_warpx.get("boost_direction", s);
             AMREX_ALWAYS_ASSERT_WITH_MESSAGE( (s == "z" || s == "Z"),
